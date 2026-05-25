@@ -6,6 +6,7 @@ use YangSheep\Ecommerce\Api\Storefront\YSRequestParser;
 use YangSheep\Ecommerce\Api\Storefront\YSRestAuth;
 use YangSheep\Ecommerce\Api\Storefront\YSRestResponder;
 use YangSheep\Ecommerce\Shipping\YSShippingRegistry;
+use YangSheep\Ecommerce\YSEcommerce;
 use YangSheep\YSCartPaynow\Admin\PaynowSettings;
 use YangSheep\YSCartPaynow\Services\Shipping\Adapters\YSPaynowAdapter;
 use YangSheep\YSCartPaynow\Shipping\Paynow\YSPaynowShipping;
@@ -45,6 +46,10 @@ final class Plugin {
 
 	public function register_shipping_methods(): void {
 		if ( ! class_exists( YSShippingRegistry::class ) ) {
+			return;
+		}
+
+		if ( ! $this->is_paynow_enabled() ) {
 			return;
 		}
 
@@ -108,6 +113,10 @@ final class Plugin {
 	}
 
 	public function paynow_map_url( \WP_REST_Request $request ): \WP_REST_Response {
+		if ( ! $this->is_paynow_enabled() ) {
+			return YSRestResponder::error( 'paynow_disabled', 'PayNow logistics is disabled.' );
+		}
+
 		$params      = YSRequestParser::params( $request );
 		$shipping_id = sanitize_text_field( $params['shipping_id'] ?? '' );
 
@@ -129,6 +138,10 @@ final class Plugin {
 			return $requester;
 		}
 
+		if ( ! $this->is_paynow_enabled() ) {
+			return $requester;
+		}
+
 		if ( $method instanceof YSPaynowShipping ) {
 			return new YSPaynowShippingRequester( $method );
 		}
@@ -143,6 +156,10 @@ final class Plugin {
 	public function add_tcat_temperature_code( array $order_data, $method, int $order_id ): array {
 		unset( $order_id );
 
+		if ( ! $this->is_paynow_enabled() ) {
+			return $order_data;
+		}
+
 		if ( $method instanceof YSPaynowShippingTcat ) {
 			$order_data['temperature_code'] = $method->get_temperature_code();
 		}
@@ -152,6 +169,10 @@ final class Plugin {
 
 	public function register_carrier_adapter( $adapter, string $provider_key ) {
 		if ( null !== $adapter ) {
+			return $adapter;
+		}
+
+		if ( ! $this->is_paynow_enabled() ) {
 			return $adapter;
 		}
 
@@ -170,5 +191,13 @@ final class Plugin {
 		$labels['paynow'] = 'PayNow';
 
 		return $labels;
+	}
+
+	private function is_paynow_enabled(): bool {
+		if ( ! class_exists( YSEcommerce::class ) ) {
+			return false;
+		}
+
+		return '1' === (string) YSEcommerce::get_instance()->get_setting( 'paynow_enabled', '0' );
 	}
 }

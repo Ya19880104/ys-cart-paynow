@@ -47,17 +47,12 @@ final class PaynowSettings {
 
 		$ec = YSEcommerce::get_instance();
 
-		$ec->update_setting( 'paynow_enabled', isset( $_POST['paynow_enabled'] ) ? '1' : '0' );
 		$ec->update_setting( 'shipping_paynow_testmode', isset( $_POST['shipping_paynow_testmode'] ) ? '1' : '0' );
 		$ec->update_setting( 'shipping_paynow_merchant_id', sanitize_text_field( wp_unslash( $_POST['shipping_paynow_merchant_id'] ?? '' ) ) );
 		$ec->update_setting( 'shipping_paynow_sender_name', sanitize_text_field( wp_unslash( $_POST['shipping_paynow_sender_name'] ?? '' ) ) );
 		$ec->update_setting( 'shipping_paynow_sender_phone', sanitize_text_field( wp_unslash( $_POST['shipping_paynow_sender_phone'] ?? '' ) ) );
 		$ec->update_setting( 'shipping_paynow_sender_zipcode', sanitize_text_field( wp_unslash( $_POST['shipping_paynow_sender_zipcode'] ?? '' ) ) );
 		$ec->update_setting( 'shipping_paynow_sender_address', sanitize_text_field( wp_unslash( $_POST['shipping_paynow_sender_address'] ?? '' ) ) );
-
-		foreach ( array_keys( self::METHODS ) as $method_id ) {
-			$ec->update_setting( 'shipping_' . $method_id . '_enabled', isset( $_POST[ 'shipping_' . $method_id . '_enabled' ] ) ? '1' : '0' );
-		}
 
 		$hash_key = trim( (string) wp_unslash( $_POST['shipping_paynow_hash_key'] ?? '' ) );
 		if ( '' !== $hash_key ) {
@@ -85,7 +80,6 @@ final class PaynowSettings {
 		$has_key      = '' !== (string) $ec->get_setting( 'shipping_paynow_hash_key', '' );
 		$has_iv       = '' !== (string) $ec->get_setting( 'shipping_paynow_hash_iv', '' );
 		$credentials  = '' !== $merchant && $has_key && $has_iv;
-		$method_count = self::enabled_method_count( $ec );
 
 		if ( class_exists( YSAdminApp::class ) ) {
 			YSAdminApp::open( 'PayNow 設定', '金物流 / PayNow' );
@@ -99,11 +93,22 @@ final class PaynowSettings {
 				</div>
 			<?php endif; ?>
 
+			<?php if ( ! $enabled ) : ?>
+				<div class="ys-ec-notice ysca-notice--warning">
+					<span class="dashicons dashicons-warning" aria-hidden="true"></span>
+					PayNow 尚未於供應商管理啟用。請至
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=ys-ec-providers' ) ); ?>">供應商管理</a>
+					啟用 PayNow；物流方式的顯示、排序與運費請至
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=ys-ec-shipping' ) ); ?>">物流方式</a>
+					設定。
+				</div>
+			<?php endif; ?>
+
 			<div class="ys-ec-stats-grid ysca-stats-grid--four">
-				<?php self::render_status_card( '外掛狀態', $enabled ? '已啟用' : '未啟用', $enabled ? '可註冊 PayNow 物流通道' : '供應商管理尚未啟用 PayNow' ); ?>
+				<?php self::render_status_card( '供應商狀態', $enabled ? '已啟用' : '未啟用', '由供應商管理統一控制' ); ?>
 				<?php self::render_status_card( 'API 模式', $test_mode ? 'Sandbox' : '正式環境', $test_mode ? '測試環境，不會建立正式物流單' : '會呼叫 PayNow 正式物流 API' ); ?>
 				<?php self::render_status_card( '憑證狀態', $credentials ? '完整' : '未完整', $credentials ? 'Merchant ID、Hash Key、Hash IV 已設定' : '選店與建單前需補齊 API 憑證' ); ?>
-				<?php self::render_status_card( '物流通道', $method_count . ' / 4', '7-ELEVEN、全家、萊爾富、黑貓宅配' ); ?>
+				<?php self::render_status_card( '可註冊物流', count( self::METHODS ) . ' 種', '方式啟用與運費由物流方式頁管理' ); ?>
 			</div>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="ysca-stack-md">
@@ -113,17 +118,6 @@ final class PaynowSettings {
 				<div class="ys-ec-card ysca-card">
 					<h3><span class="dashicons dashicons-admin-network" aria-hidden="true"></span> API 連線設定</h3>
 					<div class="inside ysca-stack-sm">
-						<label class="ysca-switch-label ysca-switch-label--trailing">
-							<span>
-								<strong>啟用 PayNow 物流</strong>
-								<p class="description">總開關。關閉後前台不應使用 PayNow 建立物流單。</p>
-							</span>
-							<span class="ysca-switch">
-								<input type="checkbox" name="paynow_enabled" value="1" <?php checked( $enabled ); ?>>
-								<span class="ysca-switch-slider"></span>
-							</span>
-						</label>
-
 						<label class="ysca-switch-label ysca-switch-label--trailing">
 							<span>
 								<strong>測試模式（Sandbox）</strong>
@@ -178,31 +172,34 @@ final class PaynowSettings {
 				</div>
 
 				<div class="ys-ec-card ysca-card">
-					<h3><span class="dashicons dashicons-store" aria-hidden="true"></span> PayNow 物流通道</h3>
+					<h3><span class="dashicons dashicons-store" aria-hidden="true"></span> PayNow 物流能力</h3>
 					<div class="inside ysca-stack-sm">
-						<p class="description">此處控制 PayNow 四個物流通道是否啟用。運費、免運、重量與金額上限仍可至物流方式設定微調。</p>
-						<div class="ysca-provider-grid">
-							<?php foreach ( self::METHODS as $method_id => $method ) : ?>
-								<div class="ysca-card ysca-surface ys-ec-card ysca-provider-card">
-									<div class="ysca-card__title-row ysca-provider-card__header">
-										<div class="ysca-provider-card__identity">
-											<span class="dashicons <?php echo '宅配' === $method['type'] ? 'dashicons-car' : 'dashicons-store'; ?> ysca-provider-card__icon" aria-hidden="true"></span>
-											<div>
-												<h4 class="ysca-card__title"><?php echo esc_html( $method['label'] ); ?></h4>
-												<p class="description ysca-provider-card__description"><?php echo esc_html( $method['description'] ); ?></p>
-											</div>
-										</div>
-										<label class="ysca-switch">
-											<input type="checkbox" name="<?php echo esc_attr( 'shipping_' . $method_id . '_enabled' ); ?>" value="1" <?php checked( '1', (string) $ec->get_setting( 'shipping_' . $method_id . '_enabled', '0' ) ); ?>>
-											<span class="ysca-switch-slider"></span>
-										</label>
-									</div>
-									<div class="ysca-provider-card__methods">
-										<strong class="ysca-field__label">Method ID：</strong>
-										<code class="ysca-code-pill"><?php echo esc_html( $method_id ); ?></code>
-									</div>
-								</div>
-							<?php endforeach; ?>
+						<p class="description">
+							以下為 PayNow 外掛註冊給 YS CART 的物流能力清單。啟用、排序、運費、免運與重量限制，請統一到
+							<a href="<?php echo esc_url( admin_url( 'admin.php?page=ys-ec-shipping' ) ); ?>">物流方式</a>
+							管理，避免供應商頁和核心物流頁雙重狀態。
+						</p>
+						<div class="ysca-table-scroll">
+							<table class="ys-ec-table ysca-settings-table ysca-settings-table--compact">
+								<thead>
+									<tr>
+										<th>通道</th>
+										<th>類型</th>
+										<th>Method ID</th>
+										<th>說明</th>
+									</tr>
+								</thead>
+								<tbody>
+									<?php foreach ( self::METHODS as $method_id => $method ) : ?>
+										<tr>
+											<td><?php echo esc_html( $method['label'] ); ?></td>
+											<td><span class="ysca-badge ysca-badge--neutral"><?php echo esc_html( $method['type'] ); ?></span></td>
+											<td><code class="ysca-code-pill"><?php echo esc_html( $method_id ); ?></code></td>
+											<td><?php echo esc_html( $method['description'] ); ?></td>
+										</tr>
+									<?php endforeach; ?>
+								</tbody>
+							</table>
 						</div>
 					</div>
 				</div>
@@ -240,17 +237,6 @@ final class PaynowSettings {
 		if ( class_exists( YSAdminApp::class ) ) {
 			YSAdminApp::close();
 		}
-	}
-
-	private static function enabled_method_count( YSEcommerce $ec ): int {
-		$count = 0;
-		foreach ( array_keys( self::METHODS ) as $method_id ) {
-			if ( '1' === (string) $ec->get_setting( 'shipping_' . $method_id . '_enabled', '0' ) ) {
-				++$count;
-			}
-		}
-
-		return $count;
 	}
 
 	private static function render_status_card( string $label, string $value, string $description ): void {

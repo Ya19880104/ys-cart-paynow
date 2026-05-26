@@ -15,7 +15,7 @@ External PayNow logistics provider for YS CART.
   - `ys_ec_paynow_ship_family`
   - `ys_ec_paynow_ship_hilife`
   - `ys_ec_paynow_ship_tcat`
-- Admin page slug: `ys-ec-paynow`
+- Admin page slug: `ys-provider-paynow`
 - Store map route: `/wp-json/ys-ecommerce-headless/v1/stores/paynow/map-url`
 - Store callback route: `/wp-json/ys-ecommerce/v1/paynow/store-callback`
 

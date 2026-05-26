@@ -33,9 +33,8 @@ final class Plugin {
 	public function init(): void {
 		PaynowSettings::register();
 
+		add_filter( 'ys_ec_provider_manifests', [ $this, 'register_manifest' ], 10, 1 );
 		add_action( 'ys_ec_register_shipping_methods', [ $this, 'register_shipping_methods' ] );
-		add_filter( 'ys_ec_providers', [ $this, 'register_provider' ] );
-		add_action( 'ys_ec_admin_payment_menus', [ $this, 'register_admin_menu' ], 10, 2 );
 		add_action( 'ys_ec_register_storefront_routes', [ $this, 'register_storefront_routes' ] );
 		add_action( 'rest_api_init', [ $this, 'register_legacy_store_callback_route' ] );
 		add_filter( 'ys_ec_shipping_requester', [ $this, 'register_shipping_requester' ], 10, 2 );
@@ -44,51 +43,53 @@ final class Plugin {
 		add_filter( 'ys_ec_shipping_provider_labels', [ $this, 'register_shipping_provider_label' ] );
 	}
 
-	public function register_shipping_methods(): void {
-		if ( ! class_exists( YSShippingRegistry::class ) ) {
-			return;
-		}
+	/**
+	 * @param array<int,array<string,mixed>> $manifests
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function register_manifest( array $manifests ): array {
+		$manifests[] = self::manifest();
 
-		if ( ! $this->is_paynow_enabled() ) {
-			return;
-		}
-
-		YSShippingRegistry::register( new YSPaynowShipping711() );
-		YSShippingRegistry::register( new YSPaynowShippingFamily() );
-		YSShippingRegistry::register( new YSPaynowShippingHilife() );
-		YSShippingRegistry::register( new YSPaynowShippingTcat() );
+		return $manifests;
 	}
 
 	/**
-	 * @param array<string,array<string,mixed>> $providers
-	 * @return array<string,array<string,mixed>>
+	 * @return array<string,mixed>
 	 */
-	public function register_provider( array $providers ): array {
-		$providers['paynow'] = [
-			'name'        => 'PayNow 立吉富',
-			'icon'        => 'dashicons-store',
-			'description' => 'PayNow 超商取貨與黑貓宅配物流。',
-			'payment'     => [],
-			'shipping'    => [ '7-ELEVEN', '全家', '萊爾富', '黑貓宅配' ],
-			'setting_key' => 'paynow_enabled',
-			'admin_url'   => admin_url( 'admin.php?page=ys-ec-paynow' ),
-		];
+	public static function manifest(): array {
+		static $manifest = null;
 
-		return $providers;
+		if ( null === $manifest ) {
+			$manifest = require YS_CART_PAYNOW_DIR . 'manifest.php';
+		}
+
+		return $manifest;
 	}
 
-	public function register_admin_menu( string $parent_slug, string $capability ): void {
-		add_submenu_page(
-			$parent_slug,
-			'PayNow 設定',
-			'PayNow',
-			$capability,
-			'ys-ec-paynow',
-			[ PaynowSettings::class, 'render_page' ]
-		);
+	public function register_shipping_methods(): void {
+		if ( ! class_exists( YSShippingRegistry::class ) || ! $this->is_paynow_shipping_enabled() ) {
+			return;
+		}
+
+		$methods = [
+			'ys_ec_paynow_ship_711'    => YSPaynowShipping711::class,
+			'ys_ec_paynow_ship_family' => YSPaynowShippingFamily::class,
+			'ys_ec_paynow_ship_hilife' => YSPaynowShippingHilife::class,
+			'ys_ec_paynow_ship_tcat'   => YSPaynowShippingTcat::class,
+		];
+
+		foreach ( $methods as $method_id => $method_class ) {
+			if ( $this->is_paynow_method_enabled( $method_id ) ) {
+				YSShippingRegistry::register( new $method_class() );
+			}
+		}
 	}
 
 	public function register_storefront_routes( string $namespace ): void {
+		if ( ! $this->is_paynow_shipping_enabled() ) {
+			return;
+		}
+
 		register_rest_route(
 			$namespace,
 			'/stores/paynow/map-url',
@@ -101,6 +102,10 @@ final class Plugin {
 	}
 
 	public function register_legacy_store_callback_route(): void {
+		if ( ! $this->is_paynow_shipping_enabled() ) {
+			return;
+		}
+
 		register_rest_route(
 			'ys-ecommerce/v1',
 			'/paynow/store-callback',
@@ -112,16 +117,24 @@ final class Plugin {
 		);
 	}
 
+	public static function manifest_paynow_map_url( \WP_REST_Request $request ): \WP_REST_Response {
+		return self::instance()->paynow_map_url( $request );
+	}
+
 	public function paynow_map_url( \WP_REST_Request $request ): \WP_REST_Response {
-		if ( ! $this->is_paynow_enabled() ) {
-			return YSRestResponder::error( 'paynow_disabled', 'PayNow logistics is disabled.' );
+		if ( ! $this->is_paynow_shipping_enabled() ) {
+			return YSRestResponder::error( 'paynow_disabled', 'PayNow 物流尚未啟用。' );
 		}
 
 		$params      = YSRequestParser::params( $request );
-		$shipping_id = sanitize_text_field( $params['shipping_id'] ?? '' );
+		$shipping_id = sanitize_key( (string) ( $params['shipping_id'] ?? '' ) );
 
 		if ( '' === $shipping_id ) {
-			return YSRestResponder::error( 'missing_shipping_id', 'Missing shipping method ID.' );
+			return YSRestResponder::error( 'missing_shipping_id', '缺少物流方式 ID。' );
+		}
+
+		if ( ! $this->is_paynow_method_enabled( $shipping_id ) ) {
+			return YSRestResponder::error( 'shipping_method_disabled', 'PayNow 物流方式尚未啟用。' );
 		}
 
 		$result = YSPaynowStoreSelector::build_map_form_data( $shipping_id );
@@ -130,7 +143,7 @@ final class Plugin {
 			return YSRestResponder::success( 'map_url_ready', '', $result );
 		}
 
-		return YSRestResponder::error( 'map_url_failed', 'PayNow API settings are incomplete.' );
+		return YSRestResponder::error( 'map_url_failed', 'PayNow API 設定尚未完成。' );
 	}
 
 	public function register_shipping_requester( $requester, $method ) {
@@ -138,7 +151,7 @@ final class Plugin {
 			return $requester;
 		}
 
-		if ( ! $this->is_paynow_enabled() ) {
+		if ( ! $this->is_paynow_shipping_enabled() ) {
 			return $requester;
 		}
 
@@ -156,7 +169,7 @@ final class Plugin {
 	public function add_tcat_temperature_code( array $order_data, $method, int $order_id ): array {
 		unset( $order_id );
 
-		if ( ! $this->is_paynow_enabled() ) {
+		if ( ! $this->is_paynow_shipping_enabled() ) {
 			return $order_data;
 		}
 
@@ -172,7 +185,7 @@ final class Plugin {
 			return $adapter;
 		}
 
-		if ( ! $this->is_paynow_enabled() ) {
+		if ( ! $this->is_paynow_shipping_enabled() ) {
 			return $adapter;
 		}
 
@@ -188,16 +201,45 @@ final class Plugin {
 	 * @return array<string,string>
 	 */
 	public function register_shipping_provider_label( array $labels ): array {
+		if ( ! $this->is_paynow_shipping_enabled() ) {
+			return $labels;
+		}
+
 		$labels['paynow'] = 'PayNow';
 
 		return $labels;
 	}
 
 	private function is_paynow_enabled(): bool {
+		if ( class_exists( '\YangSheep\Ecommerce\Core\Provider\YSProviderLifecycleState' ) ) {
+			return \YangSheep\Ecommerce\Core\Provider\YSProviderLifecycleState::is_provider_enabled( 'ys_paynow', self::manifest() );
+		}
+
 		if ( ! class_exists( YSEcommerce::class ) ) {
 			return false;
 		}
 
 		return '1' === (string) YSEcommerce::get_instance()->get_setting( 'paynow_enabled', '0' );
+	}
+
+	private function is_paynow_shipping_enabled(): bool {
+		if ( class_exists( '\YangSheep\Ecommerce\Core\Provider\YSProviderLifecycleState' ) ) {
+			return \YangSheep\Ecommerce\Core\Provider\YSProviderLifecycleState::is_capability_enabled( 'ys_paynow', 'shipping', self::manifest() );
+		}
+
+		return $this->is_paynow_enabled();
+	}
+
+	private function is_paynow_method_enabled( string $method_id ): bool {
+		if ( class_exists( '\YangSheep\Ecommerce\Core\Provider\YSProviderLifecycleState' ) ) {
+			return \YangSheep\Ecommerce\Core\Provider\YSProviderLifecycleState::is_method_enabled( 'shipping', $method_id, self::manifest() );
+		}
+
+		if ( ! class_exists( YSEcommerce::class ) ) {
+			return false;
+		}
+
+		return $this->is_paynow_enabled()
+			&& '1' === (string) YSEcommerce::get_instance()->get_setting( 'shipping_' . sanitize_key( $method_id ) . '_enabled', '0' );
 	}
 }

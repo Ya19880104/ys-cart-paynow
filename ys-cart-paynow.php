@@ -3,7 +3,7 @@
  * Plugin Name: YS CART - PayNow
  * Plugin URI: https://github.com/Ya19880104/ys-cart-paynow
  * Description: Adds PayNow logistics methods to YS CART as an external provider plugin.
- * Version: 1.1.5
+ * Version: 1.1.6
  * Author: YangSheep
  * Author URI: https://yangsheep.com.tw
  * Requires PHP: 8.1
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'YS_CART_PAYNOW_VERSION', '1.1.5' );
+define( 'YS_CART_PAYNOW_VERSION', '1.1.6' );
 define( 'YS_CART_PAYNOW_FILE', __FILE__ );
 define( 'YS_CART_PAYNOW_DIR', plugin_dir_path( __FILE__ ) );
 define( 'YS_CART_PAYNOW_URL', plugin_dir_url( __FILE__ ) );
@@ -48,7 +48,7 @@ add_action(
 				'admin_notices',
 				static function (): void {
 					if ( current_user_can( 'activate_plugins' ) ) {
-						echo '<div class="notice notice-error"><p>YS CART - PayNow requires YS CART to be active.</p></div>';
+						echo '<div class="notice notice-error"><p>YS CART - PayNow 需要先啟用 YS CART。</p></div>';
 					}
 				}
 			);

@@ -1,6 +1,6 @@
 <?php
 /**
- * v1.1.6 PayNow provider enablement guard regression.
+ * v1.1.6+ PayNow provider enablement guard regression.
  */
 
 declare(strict_types=1);
@@ -29,9 +29,11 @@ function v115_check(string $label, bool $ok): void {
 }
 
 v115_check(
-	'Plugin version bumped to 1.1.6',
-	false !== strpos($plugin, 'Version: 1.1.6')
-		&& false !== strpos($plugin, "YS_CART_PAYNOW_VERSION', '1.1.6'")
+	'Plugin version remains at least 1.1.6',
+	preg_match('/Version:\s*([0-9.]+)/', $plugin, $version_match)
+		&& preg_match("/YS_CART_PAYNOW_VERSION', '([0-9.]+)'/", $plugin, $constant_match)
+		&& version_compare((string) ($version_match[1] ?? ''), '1.1.6', '>=')
+		&& version_compare((string) ($constant_match[1] ?? ''), '1.1.6', '>=')
 );
 
 v115_check(
@@ -106,5 +108,5 @@ v115_check(
 		&& false === strpos($readme, 'ys-ec-paynow')
 );
 
-echo "v1.1.6 PayNow enabled guard regression: PASS={$pass} FAIL={$fail}\n";
+echo "v1.1.6+ PayNow enabled guard regression: PASS={$pass} FAIL={$fail}\n";
 exit($fail > 0 ? 1 : 0);

@@ -166,7 +166,7 @@ final class Plugin {
 	 * @param array<string,mixed> $order_data
 	 * @return array<string,mixed>
 	 */
-	public function add_tcat_temperature_code( array $order_data, $method, int $order_id ): array {
+	public function add_tcat_temperature_code( array $order_data, int $order_id, $method ): array {
 		unset( $order_id );
 
 		if ( ! $this->is_paynow_shipping_enabled() ) {

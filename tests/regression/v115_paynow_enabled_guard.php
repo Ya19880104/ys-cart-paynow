@@ -59,9 +59,9 @@ v115_check(
 
 v115_check(
 	'PayNow runtime adapters do not activate while provider is disabled',
-	preg_match('/public function register_shipping_requester\(.*?if \( ! \$this->is_paynow_shipping_enabled\(\) \) \{.*?return \$requester;/s', $runtime) === 1
-		&& preg_match('/public function register_carrier_adapter\(.*?if \( ! \$this->is_paynow_shipping_enabled\(\) \) \{.*?return \$adapter;/s', $runtime) === 1
-		&& preg_match('/public function paynow_map_url\(.*?if \( ! \$this->is_paynow_shipping_enabled\(\) \) \{.*?paynow_disabled/s', $runtime) === 1
+	preg_match('/public function register_shipping_requester\(.*?if \( ! \$this->has_enabled_paynow_shipping_methods\(\) \) \{.*?return \$requester;/s', $runtime) === 1
+		&& preg_match('/public function register_carrier_adapter\(.*?if \( ! \$this->has_enabled_paynow_shipping_methods\(\) \) \{.*?return \$adapter;/s', $runtime) === 1
+		&& preg_match('/public function paynow_map_url\(.*?if \( ! \$this->has_enabled_paynow_shipping_methods\(\) \) \{.*?paynow_disabled/s', $runtime) === 1
 );
 
 v115_check(

@@ -85,7 +85,7 @@ return [
 			'route'               => '/paynow/store-callback',
 			'methods'             => [ 'POST' ],
 			'callback'            => [ \YangSheep\YSCartPaynow\Shipping\Paynow\YSPaynowStoreSelector::class, 'handle_store_callback' ],
-			'permission_callback' => '__return_true',
+			'permission_callback' => [ \YangSheep\YSCartPaynow\Plugin::class, 'store_callback_permission' ],
 			'signature_scheme'    => 'paynow_aes_hash',
 			'bypass_nonce'        => true,
 		],

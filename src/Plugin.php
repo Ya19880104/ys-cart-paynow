@@ -5,6 +5,7 @@ namespace YangSheep\YSCartPaynow;
 use YangSheep\Ecommerce\Api\Storefront\YSRequestParser;
 use YangSheep\Ecommerce\Api\Storefront\YSRestAuth;
 use YangSheep\Ecommerce\Api\Storefront\YSRestResponder;
+use YangSheep\Ecommerce\Security\YSInboundPermission;
 use YangSheep\Ecommerce\Shipping\YSShippingRegistry;
 use YangSheep\Ecommerce\YSEcommerce;
 use YangSheep\YSCartPaynow\Admin\PaynowSettings;
@@ -119,13 +120,27 @@ final class Plugin {
 			[
 				'methods'             => 'POST',
 				'callback'            => [ YSPaynowStoreSelector::class, 'handle_store_callback' ],
-				'permission_callback' => '__return_true',
+				'permission_callback' => [ self::class, 'store_callback_permission' ],
 			]
 		);
 	}
 
 	public static function manifest_paynow_map_url( \WP_REST_Request $request ): \WP_REST_Response {
 		return self::instance()->paynow_map_url( $request );
+	}
+
+	public static function store_callback_permission( \WP_REST_Request $request ) {
+		if ( ! class_exists( YSInboundPermission::class ) ) {
+			return true;
+		}
+
+		$callback = YSInboundPermission::build( 'paynow_store_callback', [
+			'body_max_bytes' => 65536,
+			'rate_limit'     => [ 300, 60 ],
+			'allowed_types'  => [ 'application/x-www-form-urlencoded' ],
+			'verify_ip'      => false,
+		] );
+		return $callback( $request );
 	}
 
 	public function paynow_map_url( \WP_REST_Request $request ): \WP_REST_Response {

@@ -23,7 +23,17 @@ External PayNow logistics provider for YS CART.
 
 Use YS CART checkout APIs as usual. If the selected shipping method is a PayNow convenience-store method, request the store-map URL from the route above and send the customer to PayNow store selection.
 
+The map request payload uses the YS CART shipping method ID:
+
+```json
+{
+  "shipping_id": "ys_ec_paynow_ship_711",
+  "return_url": "https://example.com/checkout"
+}
+```
+
 The callback route receives PayNow store selection data and stores it in the YS CART cart/order context.
+The callback route is provider-facing and should not be called by browser UI.
 
 ## YS Hub updates
 

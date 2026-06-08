@@ -23,7 +23,7 @@ Expected payload:
 
 ```json
 {
-  "shipping_method": "ys_ec_paynow_ship_711",
+  "shipping_id": "ys_ec_paynow_ship_711",
   "return_url": "https://example.com/checkout"
 }
 ```
@@ -37,5 +37,7 @@ The returned URL should be opened by the customer. PayNow posts selected store d
 ## Security notes
 
 - Validate shipping method IDs against the YS CART checkout response.
+- Use `shipping_id` as the public payload key. PayNow's route reads that key
+  directly before checking provider and method state.
 - Do not expose PayNow hash key or hash IV to browser code.
 - Treat callback payloads as untrusted until provider validation succeeds.

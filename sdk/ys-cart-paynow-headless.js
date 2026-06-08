@@ -19,7 +19,7 @@ export async function requestPaynowStoreMapUrl(apiBase, shippingMethod, returnUr
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({
-      shipping_method: shippingMethod,
+      shipping_id: shippingMethod,
       return_url: returnUrl,
     }),
   });

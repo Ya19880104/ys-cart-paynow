@@ -150,6 +150,8 @@ final class Plugin {
 
 		$params      = YSRequestParser::params( $request );
 		$shipping_id = sanitize_key( (string) ( $params['shipping_id'] ?? '' ) );
+		$cart_scope  = self::sanitize_cart_scope( (string) ( $params['cart_scope'] ?? 'default' ) );
+		$return_url  = esc_url_raw( (string) ( $params['return_url'] ?? '' ) );
 
 		if ( '' === $shipping_id ) {
 			return YSRestResponder::error( 'missing_shipping_id', '缺少物流方式 ID。' );
@@ -159,13 +161,22 @@ final class Plugin {
 			return YSRestResponder::error( 'shipping_method_disabled', 'PayNow 物流方式尚未啟用。' );
 		}
 
-		$result = YSPaynowStoreSelector::build_map_form_data( $shipping_id );
+		$result = YSPaynowStoreSelector::build_map_form_data( $shipping_id, $cart_scope, $return_url );
 
 		if ( $result ) {
 			return YSRestResponder::success( 'map_url_ready', '', $result );
 		}
 
 		return YSRestResponder::error( 'map_url_failed', 'PayNow API 設定尚未完成。' );
+	}
+
+	private static function sanitize_cart_scope( string $scope ): string {
+		$scope = sanitize_key( $scope );
+		if ( '' === $scope || ! preg_match( '/^[a-z0-9_]{1,32}$/', $scope ) ) {
+			return 'default';
+		}
+
+		return $scope;
 	}
 
 	public function register_shipping_requester( $requester, $method ) {

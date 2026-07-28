@@ -30,8 +30,8 @@ $selector = $read( 'src/Shipping/Paynow/YSPaynowStoreSelector.php' );
 
 $check(
 	'version bumped for store return context fix',
-	strpos( $main, 'Version: 1.1.10' ) !== false
-		&& strpos( $main, "define( 'YS_CART_PAYNOW_VERSION', '1.1.10' )" ) !== false
+	strpos( $main, 'Version: 1.1.11' ) !== false
+		&& strpos( $main, "define( 'YS_CART_PAYNOW_VERSION', '1.1.11' )" ) !== false
 );
 
 $check(
